@@ -86,6 +86,36 @@ python -m rsna_knee_labels.evaluation.gold_check score --train-csv train.csv
 python -m rsna_knee_labels.evaluation.gold_check score --train-csv train.csv --label-table label_table_llm.csv
 ```
 
+### `evaluation.hanley_mcneil_se`：小样本AUC的置信区间
+
+gold study数量少，`score_against_gold`的每个AUC本身都有不小的抽样误差——`hanley_mcneil_se(auc, n_pos, n_neg)`用Hanley-McNeil公式给出这个AUC估计的标准误，`score_against_gold`的返回表里已经自带`se`/`ci95_lo`/`ci95_hi`三列。**比较两个标签源、两个epoch、两个backbone时，先看区间有没有重叠——重叠了就说明这个差异不能排除是抽样噪声，不是真实差距**（这正是"关于可靠性"一节强调"58个study样本量小"背后的量化依据）。
+
+```python
+from rsna_knee_labels.evaluation import hanley_mcneil_se
+
+se = hanley_mcneil_se(auc=0.82, n_pos=15, n_neg=43)   # 95% 区间约为 auc ± 1.96*se
+```
+
+### `evaluation.silence_rate` / `silence_rate_by_language`：规则版的覆盖率诊断
+
+`score_against_gold`衡量"规则命中了，命中得对不对"，但只能在58个gold study上算，样本太小。`silence_rate`衡量另一件事——"规则有没有命中"（既没判阳性也没判阴性），不需要gold标签，可以在全部4407个study上跑，样本大得多，专门用来定位"哪个语言、哪个诊断项的词表覆盖不足"。**只针对规则版**：LLM版没有"没命中"这个概念（它总会给出一个score/confidence）。
+
+```python
+from rsna_knee_labels.evaluation import silence_rate, silence_rate_by_language
+
+silence_rate(train_df)                    # 每个诊断项，全量语料的沉默率
+silence_rate_by_language(train_df)        # 按（粗略猜测的）语言拆开看，定位具体是哪个语言词表不够
+```
+
+命令行：
+
+```bash
+python -m rsna_knee_labels.evaluation.coverage --train-csv train.csv
+python -m rsna_knee_labels.evaluation.coverage --train-csv train.csv --by-language
+```
+
+一个诊断项在几乎所有报告里都沉默，可能只是它本来就罕见；但一个诊断项只在某个语言里沉默、其他语言不沉默，那基本就是那个语言的词表漏了，值得去读几条原文补词。
+
 ### `evaluation.worst_misses`：逐条看错在哪
 
 针对某一个诊断项，列出"gold是阳性、但标签源打分最低"和"gold是阴性、但标签源打分最高"的几条study，连同报告原文一起打印出来，方便直接读报告、判断是漏词还是误判，而不是只盯着一个AUC数字猜。

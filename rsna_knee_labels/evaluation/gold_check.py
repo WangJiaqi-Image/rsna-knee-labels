@@ -20,6 +20,7 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 
 from ..labeling.rule_based import TARGETS, extract
+from .metrics import hanley_mcneil_se
 
 
 def _label_source(train_df: pd.DataFrame, label_table_path: str | None) -> tuple[pd.DataFrame, str]:
@@ -48,6 +49,12 @@ def score_against_gold(train_df: pd.DataFrame, label_table_path: str | None = No
     AUC on the raw graded score (not thresholded) against the binary gold label -- this is
     what a model trained on the weak labels would actually be supervised against, so it
     measures the same thing training will lean on.
+
+    Includes a Hanley-McNeil standard error per target (`se`, and `ci95_lo`/`ci95_hi`):
+    the gold set is usually small, and an AUC estimated from a handful of positives is not
+    precise just because the number looks confident. Read the interval before treating a
+    difference between two label sources -- or two epochs, two backbones -- as a real
+    finding rather than sampling noise.
     """
     gold = train_df.set_index("StudyInstanceUID")[TARGETS]
     gold = gold[gold.notna().all(axis=1)]
@@ -67,9 +74,12 @@ def score_against_gold(train_df: pd.DataFrame, label_table_path: str | None = No
         y = gold.loc[hit, t].astype(int).values
         s = lex.loc[hit, t].values
         conf = lex.loc[hit, t + "__conf"].values
+        n_pos, n_neg = int(y.sum()), int((1 - y).sum())
         auc = roc_auc_score(y, s) if len(set(y)) > 1 else float("nan")
+        se = hanley_mcneil_se(auc, n_pos, n_neg)
         rows.append({
-            "target": t, "n": len(hit), "n_pos": int(y.sum()), "auc": auc,
+            "target": t, "n": len(hit), "n_pos": n_pos, "auc": auc, "se": se,
+            "ci95_lo": auc - 1.96 * se, "ci95_hi": auc + 1.96 * se,
             "mean_score_pos": float(s[y == 1].mean()) if y.sum() else float("nan"),
             "mean_score_neg": float(s[y == 0].mean()) if (y == 0).sum() else float("nan"),
             "mean_conf": float(conf.mean()),
@@ -79,6 +89,8 @@ def score_against_gold(train_df: pd.DataFrame, label_table_path: str | None = No
     print(f"[gold_check] {len(hit)} of {len(gold)} gold studies scored")
     print(report.to_string(float_format=lambda x: f"{x:.3f}"))
     print(f"[gold_check] macro AUC vs. gold: {report['auc'].mean():.4f}")
+    print(f"[gold_check] mean 95% interval half-width: +-{1.96 * report['se'].mean():.3f} "
+          f"-- two sources whose intervals overlap by this much are not shown to differ")
     return report
 
 

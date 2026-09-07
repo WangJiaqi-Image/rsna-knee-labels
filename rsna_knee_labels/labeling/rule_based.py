@@ -121,12 +121,14 @@ NEGATION = _rx(
     # en
     r"\bno\b", r"\bnot\b", r"\bwithout\b", r"\bnegative for\b", r"\babsence\b",
     r"\bno evidence\b", r"\bunremarkable\b", r"\bfree of\b", r"\bnone\b", r"\bnil\b",
+    r"\bnegative\b",
+    r"not (identified|seen|visuali[sz]ed|demonstrated|detected|present|appreciated)",
     # es
     r"\bsin\b", r"\bno hay\b", r"\bausencia\b", r"\bausentes?\b",
     # fr
     r"\bpas de\b", r"\bsans\b", r"\baucune?\b", r"\babsence\b",
     # nl
-    r"\bgeen\b", r"\bzonder\b", r"\bniet\b",
+    r"\bgeen\b", r"\bzonder\b", r"\bniet\b", r"niet zichtbaar", r"\bafwezigheid\b",
     # de
     r"\bkeine?\b", r"\bohne\b", r"\bnicht\b",
     # tr
@@ -141,8 +143,9 @@ NEGATION = _rx(
 )
 
 NORMALITY = _rx(
-    r"\bnormal", r"\bintact\b", r"\bpreserved\b", r"\bwithin normal limits\b",
+    r"\bnormal", r"\bintact\b", r"\bpreserved\b", r"\bwithin normal limits\b", r"\bwnl\b",
     r"limites normales", r"\bconservad", r"\bintegr", r"\bnormales\b",
+    r"sans particularite", r"sin particularidades",
     r"\bdoga(l|ll)\b", r"korunmus", r"\bnormaldir\b", r"olagan",
     r"\buredn", r"\bocuvan", r"\bodrzan", r"\bintakt",
     r"φυσιολογικ", r"ακεραι",

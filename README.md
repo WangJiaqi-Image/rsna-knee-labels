@@ -54,6 +54,32 @@ python -m rsna_knee_labels.labeling.llm_based --train-csv train.csv --studies al
 
 输出的CSV里每个诊断项两列：`<target>` (score) 和 `<target>__conf` (confidence)，跟规则版格式一致，可以直接互相替换。
 
+### API版（`labeling.llm_api_based`）
+
+跟本地LLM版用同一套prompt和输出格式，区别是调用阿里云百炼平台（DashScope）托管的千问API（比如`qwen-max`旗舰版，或更便宜的开源MoE版本`qwen3-235b-a22b`），不需要本地GPU，模型能力也更强。用OpenAI兼容接口调用，不需要装阿里专属SDK。
+
+**比赛规则允许这么做**：官方明确回复过"把报告文本发给商业托管的LLM API做推理/标签提取，不算违规的私下共享比赛数据"，前提是这个服务对所有参赛者同等可获取、成本足够低。具体条款以你参加的比赛规则页面为准。
+
+```bash
+pip install "rsna-knee-labels[api]"
+export DASHSCOPE_API_KEY="你的key"   # 千万不要写进代码或贴进对话里
+```
+
+```python
+from rsna_knee_labels.labeling.llm_api_based import run
+
+label_table = run(studies_df, model="qwen-max")
+```
+
+命令行同样支持"先在gold子集上小成本验证，再决定要不要跑全量"：
+
+```bash
+python -m rsna_knee_labels.labeling.llm_api_based --train-csv train.csv --studies gold
+python -m rsna_knee_labels.labeling.llm_api_based --train-csv train.csv --studies all --model qwen-max -o label_table_qwen_max.csv
+```
+
+跑之前先拿`evaluation.score_against_gold`跟本地LLM版的gold-AUC比一下，确认真的更准、值得多花这份API成本，再决定要不要用它重新生成全量标签表。
+
 ## 模块二：本地评分
 
 ### `evaluation.macro_auc`
